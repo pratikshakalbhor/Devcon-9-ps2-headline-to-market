@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Headline to Market</title>
+    <style>
+      :root {
+        --bg: #0f1218;
+        --panel: #171b23;
+        --panel-2: #1e2430;
+        --border: #2a3240;
+        --text: #e6e9ef;
+        --muted: #97a0af;
+        --accent: #5b8cff;
+        --ok: #2fbf71;
+        --warn: #e2a03f;
+        --err: #e2545b;
+        --radius: 10px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      header {
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--panel);
+      }
+      header h1 { margin: 0 0 4px; font-size: 20px; }
+      header p { margin: 0; color: var(--muted); font-size: 13px; }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px;
+        display: grid;
+        gap: 24px;
+        grid-template-columns: 1fr;
+      }
+      @media (min-width: 900px) {
+        main { grid-template-columns: 360px 1fr; align-items: start; }
+        .col-span { grid-column: 1 / -1; }
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+      }
+      h2 { font-size: 15px; margin: 0 0 12px; }
+      label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+      input[type="text"], textarea, select {
+        width: 100%;
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 8px 10px;
+        font: inherit;
+      }
+      textarea { min-height: 64px; resize: vertical; }
+      button {
+        font: inherit;
+        border: 1px solid var(--border);
+        background: var(--panel-2);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.55; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.danger { color: var(--err); }
+      button.ok { color: var(--ok); }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+      .badge {
+        display: inline-block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        border-radius: 999px;
+        padding: 2px 8px;
+        border: 1px solid var(--border);
+      }
+      .badge.draft { color: var(--warn); border-color: var(--warn); }
+      .badge.published { color: var(--ok); border-color: var(--ok); }
+      .badge.discarded { color: var(--muted); }
+      .badge.market { color: var(--accent); border-color: var(--accent); }
+      .badge.unresolvable { color: var(--warn); border-color: var(--warn); }
+      .badge.error { color: var(--err); border-color: var(--err); }
+      .muted { color: var(--muted); font-size: 13px; }
+      .time-note { color: var(--muted); font-size: 12px; margin-top: 4px; }
+      .message-box { border-left: 3px solid var(--border); padding: 10px 12px; border-radius: 6px; background: var(--panel-2); }
+      .message-box.error { border-left-color: var(--err); }
+      .message-box.unresolvable { border-left-color: var(--warn); }
+      .draft-list { display: grid; gap: 8px; }
+      .draft-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--panel-2);
+        cursor: pointer;
+        text-align: left;
+      }
+      .draft-item:hover { border-color: var(--accent); }
+      .draft-item .title { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .published-note { color: var(--ok); font-size: 12px; margin-top: 8px; }
+      .field-readonly input, .field-readonly textarea { opacity: 0.75; }
+      .spinner { display: inline-block; }
+      .hidden { display: none; }
+      .grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+      @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Headline &rarr; Prediction Market</h1>
+      <p>Draft a settleable market from a headline, review it, then approve to publish.</p>
+    </header>
+
+    <main>
+      <section class="panel" id="input-panel">
+        <h2>New draft</h2>
+        <label for="headline">Headline</label>
+        <textarea id="headline" placeholder="e.g. X Cup final scheduled for 17 November 2026"></textarea>
+        <label for="snippet">Snippet (optional)</label>
+        <textarea id="snippet" placeholder="Optional context from the article"></textarea>
+        <div class="row">
+          <button id="draft-btn" class="primary">Draft market</button>
+        </div>
+        <p class="muted" id="input-error" role="alert"></p>
+      </section>
+
+      <section class="panel" id="result-panel">
+        <h2>Result</h2>
+        <p class="muted" id="result-empty">Nothing drafted yet.</p>
+        <div id="result"></div>
+      </section>
+
+      <section class="panel col-span">
+        <h2>Past drafts</h2>
+        <div class="draft-list" id="draft-list">
+          <p class="muted">No drafts yet.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

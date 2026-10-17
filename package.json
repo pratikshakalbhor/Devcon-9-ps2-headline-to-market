@@ -22,5 +22,9 @@
     "vitest": "^5.0.5",
     "zod": "^4.6.7"
   },
-  "type": "module"
+  "type": "module",
+  "devDependencies": {
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.1"
+  }
 }
