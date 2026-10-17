@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run",
+    "dev": "tsx src/server.ts",
+    "eval": "tsx evals/run.ts",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
