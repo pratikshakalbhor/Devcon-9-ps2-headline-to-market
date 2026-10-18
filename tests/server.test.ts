@@ -78,6 +78,35 @@ describe("POST /api/drafts", () => {
     expect(typeof res.body.draft.message).toBe("string");
     expect(res.body.draft.fallback).toEqual({ draftManually: true, retry: true });
   });
+
+  it("persists and surfaces a redacted api_error reason (and logs it to the console)", async () => {
+    const apiErrorResult: GenerateResult = {
+      kind: "error",
+      code: "api_error",
+      message: "upstream failed using key sk-ant-hidden-key-000",
+      reason: "API status 529: upstream failed using key [REDACTED_API_KEY]",
+    };
+    const app = appWith(apiErrorResult);
+    const res = await request(app)
+      .post("/api/drafts")
+      .send({ headline: "A headline that trips the provider" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.draft.kind).toBe("error");
+    expect(res.body.draft.message).toBe(
+      "The model provider returned an error. Draft it manually or retry.",
+    );
+    expect(res.body.draft.reason).toBe(
+      "API status 529: upstream failed using key [REDACTED_API_KEY]",
+    );
+
+    const fetched = await request(app).get(`/api/drafts/${res.body.draft.id}`);
+    expect(fetched.status).toBe(200);
+    expect(fetched.body.draft.reason).toBe(
+      "API status 529: upstream failed using key [REDACTED_API_KEY]",
+    );
+    expect(fetched.body.draft.reason).not.toContain("sk-ant-");
+  });
 });
 
 describe("POST /api/drafts/:id/approve", () => {

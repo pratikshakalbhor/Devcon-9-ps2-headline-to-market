@@ -112,4 +112,34 @@ describe("generateMarket", () => {
     );
     expect(result).toMatchObject({ kind: "error", code: "api_error" });
   });
+
+  it("returns api_error with a redacted reason (API status + message, never the key)", async () => {
+    const previousKey = process.env.ANTHROPIC_API_KEY;
+    const fakeKey = "sk-ant-test-abc123456789";
+    process.env.ANTHROPIC_API_KEY = fakeKey;
+    try {
+      const err = Object.assign(new Error(`upstream failed using key ${fakeKey}`), {
+        status: 529,
+      });
+      const result = await generateMarket(
+        { headline: "X" },
+        { client: throwingClient(err), now },
+      );
+
+      expect(result.kind).toBe("error");
+      if (result.kind !== "error") return;
+      expect(result.code).toBe("api_error");
+
+      // Reason includes the API status and the message...
+      expect(result.reason).toContain("API status 529");
+      expect(result.reason).toContain("upstream failed using key");
+      // ...but never the key itself.
+      expect(result.reason).toContain("[REDACTED_API_KEY]");
+      expect(result.reason).not.toContain(fakeKey);
+      expect(result.message).not.toContain(fakeKey);
+    } finally {
+      if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = previousKey;
+    }
+  });
 });

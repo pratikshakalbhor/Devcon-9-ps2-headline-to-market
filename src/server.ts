@@ -52,6 +52,30 @@ function validateMarketPayload(payload: unknown, now: Date):
   return { ok: true, market: parsed.data };
 }
 
+/** Persisted body for an error generation result (keeps the redacted reason). */
+function errorPayload(result: {
+  code: string;
+  message: string;
+  raw?: string;
+  reason?: string;
+}): { code: string; message: string; raw?: string; reason?: string } {
+  return {
+    code: result.code,
+    message: result.message,
+    raw: result.raw,
+    reason: result.reason,
+  };
+}
+
+/** Print the redacted error reason to the server console. */
+function logGenerationError(result: {
+  code: string;
+  message: string;
+  reason?: string;
+}): void {
+  console.error(`[generate] ${result.code}: ${result.reason ?? result.message}`);
+}
+
 /** Serialize a stored record for the API, adding fallbacks for error drafts. */
 function serialize(record: DraftRecord): Record<string, unknown> {
   const base: Record<string, unknown> = {
@@ -65,12 +89,19 @@ function serialize(record: DraftRecord): Record<string, unknown> {
     updated_at: record.updated_at,
   };
   if (record.kind === "error") {
-    const payload = (record.payload ?? {}) as { code?: string; message?: string };
+    const payload = (record.payload ?? {}) as {
+      code?: string;
+      message?: string;
+      reason?: string;
+    };
     base.message =
       HUMAN_ERROR[payload.code ?? ""] ??
       payload.message ??
       "Generation failed.";
     base.fallback = { draftManually: true, retry: true };
+    if (typeof payload.reason === "string" && payload.reason.length > 0) {
+      base.reason = payload.reason;
+    }
   }
   return base;
 }
@@ -129,8 +160,9 @@ export function createApp(options: AppOptions = {}): Express {
         record = store.insertDraft({
           ...input,
           kind: "error",
-          payload: { code: result.code, message: result.message, raw: result.raw },
+          payload: errorPayload(result),
         });
+        logGenerationError(result);
       }
       // Generation errors are a normal, handled outcome -> HTTP 200.
       res.status(200).json({ draft: serialize(record) });
@@ -266,10 +298,13 @@ export function createApp(options: AppOptions = {}): Express {
           : { headline: record.headline, snippet: record.snippet };
       const result = await runGenerate(input);
       const kind = result.kind === "draft" ? "market" : result.kind;
-      const payload =
-        result.kind === "error"
-          ? { code: result.code, message: result.message, raw: result.raw }
-          : result.data;
+      let payload: unknown;
+      if (result.kind === "error") {
+        payload = errorPayload(result);
+        logGenerationError(result);
+      } else {
+        payload = result.data;
+      }
       store.setStatus(record.id, "draft");
       const updated = store.updatePayload(record.id, kind, payload);
       res.json({ draft: serialize(updated!) });

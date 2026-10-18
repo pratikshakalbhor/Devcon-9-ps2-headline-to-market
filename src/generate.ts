@@ -41,7 +41,14 @@ export type ErrorCode =
 export type GenerateResult =
   | { kind: "draft"; data: Market }
   | { kind: "unresolvable"; data: Unresolvable }
-  | { kind: "error"; code: ErrorCode; message: string; raw?: string };
+  | {
+      kind: "error";
+      code: ErrorCode;
+      message: string;
+      raw?: string;
+      /** Redacted, human-readable diagnostic (API status + message, never the key). */
+      reason?: string;
+    };
 
 export interface GenerateInput {
   headline: string;
@@ -105,6 +112,31 @@ function isTimeoutError(err: unknown): boolean {
   return /timeout/i.test(name) || /timed?\s*out|timeout/i.test(message);
 }
 
+/** Remove anything that looks like an API key. Never emit the key itself. */
+export function redactSecrets(text: string): string {
+  let out = text;
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (key && key.length >= 8) {
+    out = out.split(key).join("[REDACTED_API_KEY]");
+  }
+  out = out.replace(/sk-ant-[A-Za-z0-9_-]{4,}/g, "[REDACTED_API_KEY]");
+  out = out.replace(/sk-[A-Za-z0-9_-]{8,}/g, "[REDACTED_API_KEY]");
+  return out;
+}
+
+/** Build a redacted diagnostic for a provider error: API status + message (no key). */
+export function describeApiError(err: unknown): string {
+  const status =
+    err && typeof err === "object" ? (err as { status?: unknown }).status : undefined;
+  const message = err instanceof Error ? err.message : String(err);
+  const parts: string[] = [];
+  if (typeof status === "number" || typeof status === "string") {
+    parts.push(`API status ${String(status)}`);
+  }
+  parts.push(message);
+  return redactSecrets(parts.join(": "));
+}
+
 function extractText(response: LlmResponse): string | undefined {
   const block = response.content.find(
     (b) => b.type === "text" && typeof b.text === "string",
@@ -148,7 +180,12 @@ export async function generateMarket(
     if (isTimeoutError(err)) {
       return { kind: "error", code: "timeout", message };
     }
-    return { kind: "error", code: "api_error", message };
+    return {
+      kind: "error",
+      code: "api_error",
+      message: redactSecrets(message),
+      reason: describeApiError(err),
+    };
   }
 
   const text = extractText(response);

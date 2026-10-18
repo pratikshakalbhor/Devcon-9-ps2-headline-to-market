@@ -206,10 +206,17 @@
 
   function renderError(record, container) {
     var payload = record.payload || {};
-    var box = el("div", { className: "message-box error" }, [
-      el("strong", { text: record.message || "Generation failed" }),
+    var reason = record.reason || payload.reason || "";
+    var children = [
+      el("strong", { text: record.message || "Generation failed" })
+    ];
+    if (reason) {
+      children.push(el("p", { className: "muted", text: "Reason: " + reason }));
+    }
+    children.push(
       el("p", { className: "muted", text: "Code: " + (payload.code || "unknown") })
-    ]);
+    );
+    var box = el("div", { className: "message-box error" }, children);
     container.appendChild(box);
     container.appendChild(actionRow(record, true));
   }
